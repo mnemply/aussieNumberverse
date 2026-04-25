@@ -79,16 +79,18 @@ button {
 .confetti {
   position: fixed;
   top: -20px;
-  width: 10px;
-  height: 14px;
   opacity: 0.9;
   z-index: 9999;
-  animation: fall 3s linear forwards;
+  animation: fall linear forwards;
 }
 
 @keyframes fall {
-  0% { transform: translateY(-20px) rotate(0deg); }
-  100% { transform: translateY(110vh) rotate(720deg); }
+  0% {
+    transform: translate(0, -20px) rotate(0deg);
+  }
+  100% {
+    transform: translate(var(--x-move), 110vh) rotate(720deg);
+  }
 }
 </style>
 </head>
@@ -168,7 +170,6 @@ async function buildMasterDeck() {
     const back = path + "AN_" + i.toString().padStart(3,"0") + "B.png";
 
     const exists = await imagePairExists(front, back);
-
     if (!exists) break;
 
     masterDeck.push(i);
@@ -326,19 +327,29 @@ async function restartSession() {
   startDeck(masterDeck);
 }
 
-// 🎉 CONFETTI FUNCTION
+// 🎉 CONFETTI FIXED
 function launchConfetti() {
   const colors = ["#e94f35","#fbba00","#ffee00","#65b33a","#00aae5","#3b4395","#6c4796"];
 
   for (let i = 0; i < 80; i++) {
     const el = document.createElement("div");
     el.className = "confetti";
+
     el.style.left = Math.random() * 100 + "vw";
-    el.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+    el.style.setProperty("--x-move", (Math.random() * 200 - 100) + "px");
+
+    const size = 6 + Math.random() * 6;
+    el.style.width = size + "px";
+    el.style.height = size * 1.5 + "px";
+
+    el.style.backgroundColor =
+      colors[Math.floor(Math.random() * colors.length)];
+
+    el.style.animationDuration = (2 + Math.random() * 2) + "s";
 
     document.body.appendChild(el);
 
-    setTimeout(() => el.remove(), 3000);
+    setTimeout(() => el.remove(), 4000);
   }
 }
 
