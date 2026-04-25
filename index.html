@@ -74,6 +74,22 @@ button {
   font-weight: bold;
   display: none;
 }
+
+/* 🎉 CONFETTI */
+.confetti {
+  position: fixed;
+  top: -20px;
+  width: 10px;
+  height: 14px;
+  opacity: 0.9;
+  z-index: 9999;
+  animation: fall 3s linear forwards;
+}
+
+@keyframes fall {
+  0% { transform: translateY(-20px) rotate(0deg); }
+  100% { transform: translateY(110vh) rotate(720deg); }
+}
 </style>
 </head>
 
@@ -130,10 +146,11 @@ let streak = 0;
 let perfectRuns = Number(localStorage.getItem("perfectRuns")) || 0;
 
 let missedCards = new Set();
-let confettiPlayed = false;
 
 let replayMode = false;
 let mainRunHadMiss = false;
+
+let confettiPlayed = false;
 
 let touchStartX = 0;
 let touchEndX = 0;
@@ -141,15 +158,14 @@ const swipeDistance = 70;
 
 const path = "";
 
-// 🔥 FAST auto-detect
+// AUTO DETECT
 async function buildMasterDeck() {
   masterDeck = [];
-
   let i = 0;
 
   while (true) {
-    const front = path + "AN_" + i.toString().padStart(3, "0") + "F.png";
-    const back = path + "AN_" + i.toString().padStart(3, "0") + "B.png";
+    const front = path + "AN_" + i.toString().padStart(3,"0") + "F.png";
+    const back = path + "AN_" + i.toString().padStart(3,"0") + "B.png";
 
     const exists = await imagePairExists(front, back);
 
@@ -160,7 +176,6 @@ async function buildMasterDeck() {
   }
 }
 
-// check both images exist
 function imagePairExists(front, back) {
   return new Promise(resolve => {
     let loaded = 0;
@@ -181,15 +196,13 @@ function imagePairExists(front, back) {
 }
 
 function getFile(num, side) {
-  return path + "AN_" + num.toString().padStart(3, "0") + side + ".png";
+  return path + "AN_" + num.toString().padStart(3,"0") + side + ".png";
 }
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    const temp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = temp;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
 }
 
@@ -199,7 +212,6 @@ function startDeck(cards) {
 
   currentIndex = 0;
   currentCard = null;
-  showingFront = true;
 
   document.getElementById("answerButtons").style.display = "flex";
   document.getElementById("replayBtn").style.display = "none";
@@ -209,21 +221,19 @@ function startDeck(cards) {
 }
 
 function loadCard() {
-  showingFront = true;
-
   if (currentIndex >= currentDeck.length) {
     showComplete();
     return;
   }
 
   currentCard = currentDeck[currentIndex];
-  document.getElementById("cardImage").src = getFile(currentCard, "F");
+  document.getElementById("cardImage").src = getFile(currentCard,"F");
 }
 
 function flipCard() {
   if (currentCard === null) return;
-  showingFront = !showingFront;
 
+  showingFront = !showingFront;
   document.getElementById("cardImage").src =
     getFile(currentCard, showingFront ? "F" : "B");
 }
@@ -270,29 +280,28 @@ function updateUI() {
 function showComplete() {
   document.getElementById("answerButtons").style.display = "none";
 
-  const missedCount = missedCards.size;
-  const perfect = missedCount === 0;
+  const perfect = !mainRunHadMiss && missedCards.size === 0;
 
   document.getElementById("cardImage").src =
     path + (perfect ? "complete_perfect.png" : "complete_missed.png");
 
-  if (perfect) {
+  if (perfect && !replayMode) {
     perfectRuns++;
     localStorage.setItem("perfectRuns", perfectRuns);
+
+    if (!confettiPlayed) {
+      launchConfetti();
+      confettiPlayed = true;
+    }
   }
 
   document.getElementById("replayBtn").style.display =
-    missedCount > 0 ? "block" : "none";
+    missedCards.size > 0 ? "block" : "none";
 
-  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-
-  const acc = document.getElementById("accuracy");
-  acc.style.display = "block";
-  acc.innerHTML =
-    "Accuracy: " + accuracy + "%<br>" +
-    (missedCount > 0
-      ? "You missed " + missedCount + " card" + (missedCount > 1 ? "s" : "")
-      : "");
+  const accuracy = Math.round((correct / total) * 100);
+  document.getElementById("accuracy").style.display = "block";
+  document.getElementById("accuracy").textContent =
+    "Accuracy: " + accuracy + "%";
 }
 
 function replayMissed() {
@@ -309,6 +318,7 @@ async function restartSession() {
   missedCards.clear();
   replayMode = false;
   mainRunHadMiss = false;
+  confettiPlayed = false;
 
   updateUI();
 
@@ -316,7 +326,23 @@ async function restartSession() {
   startDeck(masterDeck);
 }
 
-// swipe
+// 🎉 CONFETTI FUNCTION
+function launchConfetti() {
+  const colors = ["#e94f35","#fbba00","#ffee00","#65b33a","#00aae5","#3b4395","#6c4796"];
+
+  for (let i = 0; i < 80; i++) {
+    const el = document.createElement("div");
+    el.className = "confetti";
+    el.style.left = Math.random() * 100 + "vw";
+    el.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+
+    document.body.appendChild(el);
+
+    setTimeout(() => el.remove(), 3000);
+  }
+}
+
+// SWIPE
 const card = document.getElementById("card");
 
 card.addEventListener("touchstart", e => {
@@ -325,7 +351,6 @@ card.addEventListener("touchstart", e => {
 
 card.addEventListener("touchend", e => {
   touchEndX = e.changedTouches[0].screenX;
-
   const diff = touchEndX - touchStartX;
 
   if (Math.abs(diff) < swipeDistance) return;
