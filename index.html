@@ -21,10 +21,7 @@ body {
   padding: 12px;
 }
 
-h1 {
-  text-align: center;
-  margin: 8px 0 4px;
-}
+h1 { text-align: center; }
 
 .tagline {
   text-align: center;
@@ -77,21 +74,6 @@ button {
   font-weight: bold;
   display: none;
 }
-
-.confetti {
-  position: fixed;
-  top: -20px;
-  width: 10px;
-  height: 14px;
-  opacity: 0.9;
-  z-index: 9999;
-  animation: fall 3s linear forwards;
-}
-
-@keyframes fall {
-  0% { transform: translateY(-20px) rotate(0deg); }
-  100% { transform: translateY(110vh) rotate(720deg); }
-}
 </style>
 </head>
 
@@ -103,7 +85,7 @@ button {
 <div class="tagline">Where numbers come to life.</div>
 
 <div class="card" id="card" onclick="flipCard()">
-  <img id="cardImage" src="" alt="Aussie Numberverse flashcard">
+  <img id="cardImage" src="">
 </div>
 
 <div class="controls" id="answerButtons">
@@ -155,43 +137,51 @@ let mainRunHadMiss = false;
 
 let touchStartX = 0;
 let touchEndX = 0;
-
 const swipeDistance = 70;
-const path = "";
-const firstCard = 0;
-const lastCard = 20;
 
-function buildMasterDeck() {
+const path = "";
+
+// 🔥 FAST auto-detect
+async function buildMasterDeck() {
   masterDeck = [];
 
-  for (let i = firstCard; i <= lastCard; i++) {
+  let i = 0;
+
+  while (true) {
+    const front = path + "AN_" + i.toString().padStart(3, "0") + "F.png";
+    const back = path + "AN_" + i.toString().padStart(3, "0") + "B.png";
+
+    const exists = await imagePairExists(front, back);
+
+    if (!exists) break;
+
     masterDeck.push(i);
+    i++;
   }
+}
+
+// check both images exist
+function imagePairExists(front, back) {
+  return new Promise(resolve => {
+    let loaded = 0;
+
+    const f = new Image();
+    const b = new Image();
+
+    f.onload = b.onload = () => {
+      loaded++;
+      if (loaded === 2) resolve(true);
+    };
+
+    f.onerror = b.onerror = () => resolve(false);
+
+    f.src = front;
+    b.src = back;
+  });
 }
 
 function getFile(num, side) {
   return path + "AN_" + num.toString().padStart(3, "0") + side + ".png";
-}
-
-function preloadImage(src) {
-  const img = new Image();
-  img.src = src;
-}
-
-function preloadCurrentAndNext() {
-  if (currentCard !== null) {
-    preloadImage(getFile(currentCard, "B"));
-  }
-
-  const nextCard = currentDeck[currentIndex + 1];
-
-  if (nextCard !== undefined) {
-    preloadImage(getFile(nextCard, "F"));
-    preloadImage(getFile(nextCard, "B"));
-  }
-
-  preloadImage(path + "complete_perfect.png");
-  preloadImage(path + "complete_missed.png");
 }
 
 function shuffle(arr) {
@@ -228,14 +218,10 @@ function loadCard() {
 
   currentCard = currentDeck[currentIndex];
   document.getElementById("cardImage").src = getFile(currentCard, "F");
-
-  preloadCurrentAndNext();
 }
 
 function flipCard() {
   if (currentCard === null) return;
-  if (currentIndex >= currentDeck.length) return;
-
   showingFront = !showingFront;
 
   document.getElementById("cardImage").src =
@@ -244,14 +230,10 @@ function flipCard() {
 
 function mark(isCorrect) {
   if (currentCard === null) return;
-  if (currentIndex >= currentDeck.length) return;
 
   if (isCorrect) {
     correct++;
-
-    if (!replayMode) {
-      streak++;
-    }
+    if (!replayMode) streak++;
 
     if (missedCards.has(currentCard)) {
       missedCards.delete(currentCard);
@@ -286,42 +268,17 @@ function updateUI() {
 }
 
 function showComplete() {
-  currentCard = null;
   document.getElementById("answerButtons").style.display = "none";
 
   const missedCount = missedCards.size;
+  const perfect = missedCount === 0;
 
-  const perfectMainRun =
-    !replayMode &&
-    !mainRunHadMiss &&
-    missedCount === 0 &&
-    total === masterDeck.length;
+  document.getElementById("cardImage").src =
+    path + (perfect ? "complete_perfect.png" : "complete_missed.png");
 
-  const allMissesFixed =
-    replayMode &&
-    missedCount === 0;
-
-  if (perfectMainRun) {
-    document.getElementById("cardImage").src = path + "complete_perfect.png";
-
+  if (perfect) {
     perfectRuns++;
     localStorage.setItem("perfectRuns", perfectRuns);
-
-    if (!confettiPlayed) {
-      launchConfetti();
-      confettiPlayed = true;
-    }
-
-  } else if (allMissesFixed) {
-    document.getElementById("cardImage").src = path + "complete_perfect.png";
-
-    if (!confettiPlayed) {
-      launchConfetti();
-      confettiPlayed = true;
-    }
-
-  } else {
-    document.getElementById("cardImage").src = path + "complete_missed.png";
   }
 
   document.getElementById("replayBtn").style.display =
@@ -331,92 +288,52 @@ function showComplete() {
 
   const acc = document.getElementById("accuracy");
   acc.style.display = "block";
-
-  if (missedCount > 0) {
-    acc.innerHTML =
-      "Accuracy: " + accuracy + "%<br>" +
-      "You missed " + missedCount + " card" + (missedCount > 1 ? "s" : "");
-  } else if (replayMode && mainRunHadMiss) {
-    acc.innerHTML =
-      "Accuracy: " + accuracy + "%<br>" +
-      "All missed cards fixed!";
-  } else {
-    acc.textContent = "Accuracy: " + accuracy + "%";
-  }
-
-  updateUI();
+  acc.innerHTML =
+    "Accuracy: " + accuracy + "%<br>" +
+    (missedCount > 0
+      ? "You missed " + missedCount + " card" + (missedCount > 1 ? "s" : "")
+      : "");
 }
 
 function replayMissed() {
-  const cards = Array.from(missedCards);
-  if (cards.length === 0) return;
-
   replayMode = true;
-  startDeck(cards);
+  startDeck(Array.from(missedCards));
 }
 
-function restartSession() {
+async function restartSession() {
   correct = 0;
   wrong = 0;
   total = 0;
   streak = 0;
 
   missedCards.clear();
-  confettiPlayed = false;
-  currentCard = null;
-
   replayMode = false;
   mainRunHadMiss = false;
 
   updateUI();
 
-  buildMasterDeck();
+  await buildMasterDeck();
   startDeck(masterDeck);
 }
 
-function launchConfetti() {
-  const colors = ["#e94f35", "#fbba00", "#ffee00", "#65b33a", "#00aae5", "#3b4395", "#6c4796"];
-
-  for (let i = 0; i < 90; i++) {
-    const piece = document.createElement("div");
-    piece.className = "confetti";
-    piece.style.left = Math.random() * 100 + "vw";
-    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.animationDelay = Math.random() * 0.8 + "s";
-    piece.style.animationDuration = 2.4 + Math.random() * 1.6 + "s";
-
-    document.body.appendChild(piece);
-
-    setTimeout(() => {
-      piece.remove();
-    }, 4500);
-  }
-}
-
+// swipe
 const card = document.getElementById("card");
 
-card.addEventListener("touchstart", function(e) {
+card.addEventListener("touchstart", e => {
   touchStartX = e.changedTouches[0].screenX;
 });
 
-card.addEventListener("touchend", function(e) {
+card.addEventListener("touchend", e => {
   touchEndX = e.changedTouches[0].screenX;
 
   const diff = touchEndX - touchStartX;
 
   if (Math.abs(diff) < swipeDistance) return;
 
-  if (diff > 0) {
-    mark(true);
-  } else {
-    mark(false);
-  }
+  diff > 0 ? mark(true) : mark(false);
 });
 
-document.addEventListener("DOMContentLoaded", function() {
-  updateUI();
-  restartSession();
-});
+document.addEventListener("DOMContentLoaded", restartSession);
 </script>
 
 </body>
