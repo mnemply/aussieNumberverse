@@ -34,7 +34,7 @@ h1 {
   margin-bottom: 8px;
 }
 
-/* 🔥 UPDATED CARD */
+/* ✅ FIXED CARD (NO HEIGHT LIMITS) */
 .card {
   margin-top: 8px;
   background: #111;
@@ -42,17 +42,22 @@ h1 {
   overflow: hidden;
   cursor: pointer;
   touch-action: pan-y;
-  aspect-ratio: 3 / 4;
-  max-height: 60vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 10px;
 }
 
 .card img {
   width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover; /* 🔥 FIXED (no grey bars) */
+  height: auto; /* 🔥 KEY FIX */
+  object-fit: contain;
+  border-radius: 12px;
 }
 
+/* BUTTONS */
 .controls {
   display: flex;
   gap: 8px;
@@ -86,7 +91,7 @@ button {
   display: none;
 }
 
-/* 🔥 CONFETTI */
+/* CONFETTI */
 .confetti {
   position: fixed;
   top: -20px;
@@ -171,13 +176,13 @@ const swipeDistance = 70;
 
 const path = "";
 
-/* 🔥 FAST PARALLEL DECK BUILD */
+/* FAST BUILD */
 async function buildMasterDeck() {
   masterDeck = [];
 
   const checks = [];
 
-  for (let i = 0; i < 200; i++) { // safe upper limit
+  for (let i = 0; i < 200; i++) {
     const front = getFile(i, "F");
     const back = getFile(i, "B");
 
@@ -191,7 +196,6 @@ async function buildMasterDeck() {
   await Promise.all(checks);
 }
 
-/* IMAGE CHECK */
 function imagePairExists(front, back) {
   return new Promise(resolve => {
     let loaded = 0;
@@ -341,7 +345,6 @@ function replayMissed() {
   startDeck(Array.from(missedCards));
 }
 
-/* 🔥 CACHED RESTART */
 async function restartSession() {
   correct = 0;
   wrong = 0;
@@ -362,7 +365,6 @@ async function restartSession() {
   startDeck(masterDeck);
 }
 
-/* 🔥 IMPROVED CONFETTI */
 function launchConfetti() {
   const colors = ["#e94f35", "#fbba00", "#ffee00", "#65b33a", "#00aae5", "#3b4395", "#6c4796"];
 
@@ -387,7 +389,6 @@ function launchConfetti() {
   }
 }
 
-/* SWIPE */
 const card = document.getElementById("card");
 
 card.addEventListener("touchstart", e => {
@@ -403,7 +404,6 @@ card.addEventListener("touchend", e => {
   diff > 0 ? mark(true) : mark(false);
 });
 
-/* INIT */
 document.addEventListener("DOMContentLoaded", restartSession);
 </script>
 
