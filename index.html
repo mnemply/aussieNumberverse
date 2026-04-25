@@ -23,52 +23,34 @@ body {
 
 h1 {
   text-align: center;
-  font-size: 1.5rem;
-  margin: 6px 0;
+  font-size: 1.7rem;
+  margin: 8px 0 4px;
 }
 
 .tagline {
   text-align: center;
-  font-size: 0.8rem;
-  opacity: 0.8;
-  margin-bottom: 6px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin-bottom: 8px;
 }
 
-/* 🔥 Smaller card */
+/* 🔥 UPDATED CARD */
 .card {
   margin-top: 8px;
-  background: #8b2c14;
+  background: #111;
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   touch-action: pan-y;
-  padding: 12px;
+  aspect-ratio: 3 / 4;
+  max-height: 60vh;
 }
 
-/* 🔥 Limit image size */
 .card img {
   width: 100%;
-  max-height: 260px;
-  object-fit: contain;
+  height: 100%;
   display: block;
-  border-radius: 10px;
-  background: #eee;
-}
-
-/* tighter text spacing */
-.card-text {
-  text-align: center;
-  margin-top: 8px;
-}
-
-.card-text h2 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.card-text p {
-  margin: 6px 0 0;
-  font-size: 0.9rem;
+  object-fit: cover; /* 🔥 FIXED (no grey bars) */
 }
 
 .controls {
@@ -83,28 +65,28 @@ button {
   border-radius: 10px;
   border: none;
   font-weight: bold;
-  font-size: 0.9rem;
 }
 
 .good { background: #16a34a; color: white; }
 .bad { background: #dc2626; color: white; }
 .restart { background: #facc15; color: #111; }
+.replay { background: #fb923c; color: #111; }
 
 .score, .streaks {
   display: flex;
   justify-content: space-between;
-  margin-top: 6px;
-  font-size: 0.8rem;
+  margin-top: 8px;
+  font-size: 0.9rem;
 }
 
 .accuracy {
   text-align: center;
-  margin-top: 6px;
-  font-size: 0.85rem;
+  margin-top: 8px;
+  font-weight: bold;
   display: none;
 }
 
-/* confetti stays same */
+/* 🔥 CONFETTI */
 .confetti {
   position: fixed;
   top: -20px;
@@ -114,8 +96,12 @@ button {
 }
 
 @keyframes fall {
-  0% { transform: translate(0,-20px) rotate(0deg); }
-  100% { transform: translate(var(--x-move),110vh) rotate(720deg); }
+  0% {
+    transform: translate(0, -20px) rotate(0deg);
+  }
+  100% {
+    transform: translate(var(--x-move), 110vh) rotate(720deg);
+  }
 }
 </style>
 </head>
@@ -128,20 +114,18 @@ button {
 <div class="tagline">Where numbers come to life.</div>
 
 <div class="card" id="card" onclick="flipCard()">
-  <img id="cardImage" src="">
-
-  <div class="card-text">
-    <h2 id="titleText">Who is this?</h2>
-    <p id="tapText">👇 Tap to reveal</p>
-  </div>
+  <img id="cardImage" src="" alt="Aussie Numberverse flashcard">
 </div>
 
-<div class="controls">
+<div class="controls" id="answerButtons">
   <button class="good" onclick="mark(true)">I knew it</button>
   <button class="bad" onclick="mark(false)">Missed it</button>
 </div>
 
 <div class="controls">
+  <button class="replay" id="replayBtn" onclick="replayMissed()" style="display:none;">
+    Replay Missed Cards
+  </button>
   <button class="restart" onclick="restartSession()">Restart</button>
 </div>
 
@@ -161,8 +145,6 @@ button {
 </div>
 
 <script>
-// (kept your logic unchanged for stability)
-
 let masterDeck = [];
 let currentDeck = [];
 let currentIndex = 0;
@@ -177,19 +159,60 @@ let streak = 0;
 let perfectRuns = Number(localStorage.getItem("perfectRuns")) || 0;
 
 let missedCards = new Set();
+
+let replayMode = false;
 let mainRunHadMiss = false;
+
+let confettiPlayed = false;
+
+let touchStartX = 0;
+let touchEndX = 0;
+const swipeDistance = 70;
 
 const path = "";
 
-function getFile(num, side) {
-  return path + "AN_" + num.toString().padStart(3,"0") + side + ".png";
+/* 🔥 FAST PARALLEL DECK BUILD */
+async function buildMasterDeck() {
+  masterDeck = [];
+
+  const checks = [];
+
+  for (let i = 0; i < 200; i++) { // safe upper limit
+    const front = getFile(i, "F");
+    const back = getFile(i, "B");
+
+    checks.push(
+      imagePairExists(front, back).then(exists => {
+        if (exists) masterDeck.push(i);
+      })
+    );
+  }
+
+  await Promise.all(checks);
 }
 
-function buildMasterDeck() {
-  masterDeck = [];
-  for (let i = 0; i <= 100; i++) {
-    masterDeck.push(i);
-  }
+/* IMAGE CHECK */
+function imagePairExists(front, back) {
+  return new Promise(resolve => {
+    let loaded = 0;
+
+    const f = new Image();
+    const b = new Image();
+
+    f.onload = b.onload = () => {
+      loaded++;
+      if (loaded === 2) resolve(true);
+    };
+
+    f.onerror = b.onerror = () => resolve(false);
+
+    f.src = front;
+    b.src = back;
+  });
+}
+
+function getFile(num, side) {
+  return path + "AN_" + num.toString().padStart(3, "0") + side + ".png";
 }
 
 function shuffle(arr) {
@@ -202,44 +225,68 @@ function shuffle(arr) {
 function startDeck(cards) {
   currentDeck = [...cards];
   shuffle(currentDeck);
+
   currentIndex = 0;
+  currentCard = null;
+  showingFront = true;
+
+  document.getElementById("answerButtons").style.display = "flex";
+  document.getElementById("replayBtn").style.display = "none";
+  document.getElementById("accuracy").style.display = "none";
+
   loadCard();
 }
 
 function loadCard() {
-  if (currentIndex >= currentDeck.length) return;
-  currentCard = currentDeck[currentIndex];
   showingFront = true;
 
-  document.getElementById("cardImage").src = getFile(currentCard,"F");
-  document.getElementById("titleText").textContent = "Who is this?";
-  document.getElementById("tapText").style.display = "block";
+  if (currentIndex >= currentDeck.length) {
+    showComplete();
+    return;
+  }
+
+  currentCard = currentDeck[currentIndex];
+  document.getElementById("cardImage").src = getFile(currentCard, "F");
 }
 
 function flipCard() {
-  showingFront = !showingFront;
+  if (currentCard === null) return;
 
+  showingFront = !showingFront;
   document.getElementById("cardImage").src =
     getFile(currentCard, showingFront ? "F" : "B");
-
-  document.getElementById("titleText").textContent =
-    showingFront ? "Who is this?" : "";
-  document.getElementById("tapText").style.display =
-    showingFront ? "block" : "none";
 }
 
-function mark(correctAnswer) {
-  total++;
+function mark(isCorrect) {
+  if (currentCard === null) return;
 
-  if (correctAnswer) {
+  if (isCorrect) {
     correct++;
-    streak++;
+
+    if (!replayMode) {
+      streak++;
+    }
+
+    if (missedCards.has(currentCard)) {
+      missedCards.delete(currentCard);
+      wrong--;
+    }
+
   } else {
-    wrong++;
-    streak = 0;
+    if (!replayMode) {
+      streak = 0;
+      mainRunHadMiss = true;
+    }
+
+    if (!missedCards.has(currentCard)) {
+      missedCards.add(currentCard);
+      wrong++;
+    }
   }
 
+  total++;
   updateUI();
+
   currentIndex++;
   loadCard();
 }
@@ -252,17 +299,111 @@ function updateUI() {
   document.getElementById("perfectRuns").textContent = perfectRuns;
 }
 
-function restartSession() {
+function showComplete() {
+  document.getElementById("answerButtons").style.display = "none";
+
+  const perfect = !mainRunHadMiss && missedCards.size === 0;
+
+  document.getElementById("cardImage").src =
+    path + (perfect ? "complete_perfect.png" : "complete_missed.png");
+
+  if (perfect && !replayMode) {
+    perfectRuns++;
+    localStorage.setItem("perfectRuns", perfectRuns);
+
+    if (!confettiPlayed) {
+      launchConfetti();
+      confettiPlayed = true;
+    }
+  }
+
+  document.getElementById("replayBtn").style.display =
+    missedCards.size > 0 ? "block" : "none";
+
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+  const acc = document.getElementById("accuracy");
+  acc.style.display = "block";
+
+  if (missedCards.size > 0) {
+    acc.innerHTML =
+      "Accuracy: " + accuracy + "%<br>" +
+      "You missed " + missedCards.size + " card" + (missedCards.size > 1 ? "s" : "");
+  } else {
+    acc.textContent = "Accuracy: " + accuracy + "%";
+  }
+
+  updateUI();
+}
+
+function replayMissed() {
+  replayMode = true;
+  startDeck(Array.from(missedCards));
+}
+
+/* 🔥 CACHED RESTART */
+async function restartSession() {
   correct = 0;
   wrong = 0;
   total = 0;
   streak = 0;
 
-  buildMasterDeck();
-  startDeck(masterDeck);
+  missedCards.clear();
+  replayMode = false;
+  mainRunHadMiss = false;
+  confettiPlayed = false;
+
   updateUI();
+
+  if (masterDeck.length === 0) {
+    await buildMasterDeck();
+  }
+
+  startDeck(masterDeck);
 }
 
+/* 🔥 IMPROVED CONFETTI */
+function launchConfetti() {
+  const colors = ["#e94f35", "#fbba00", "#ffee00", "#65b33a", "#00aae5", "#3b4395", "#6c4796"];
+
+  for (let i = 0; i < 80; i++) {
+    const el = document.createElement("div");
+    el.className = "confetti";
+
+    el.style.left = Math.random() * 100 + "vw";
+    el.style.top = Math.random() * -50 + "px";
+    el.style.setProperty("--x-move", (Math.random() * 300 - 150) + "px");
+
+    const size = 6 + Math.random() * 6;
+    el.style.width = size + "px";
+    el.style.height = size * 1.5 + "px";
+
+    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDuration = (2 + Math.random() * 2) + "s";
+
+    document.body.appendChild(el);
+
+    setTimeout(() => el.remove(), 4000);
+  }
+}
+
+/* SWIPE */
+const card = document.getElementById("card");
+
+card.addEventListener("touchstart", e => {
+  touchStartX = e.changedTouches[0].screenX;
+});
+
+card.addEventListener("touchend", e => {
+  touchEndX = e.changedTouches[0].screenX;
+  const diff = touchEndX - touchStartX;
+
+  if (Math.abs(diff) < swipeDistance) return;
+
+  diff > 0 ? mark(true) : mark(false);
+});
+
+/* INIT */
 document.addEventListener("DOMContentLoaded", restartSession);
 </script>
 
