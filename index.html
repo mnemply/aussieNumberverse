@@ -21,7 +21,10 @@ body {
   padding: 12px;
 }
 
-h1 { text-align: center; }
+h1 {
+  text-align: center;
+  margin: 8px 0 4px;
+}
 
 .tagline {
   text-align: center;
@@ -152,47 +155,58 @@ let mainRunHadMiss = false;
 
 let touchStartX = 0;
 let touchEndX = 0;
-const swipeDistance = 70;
 
+const swipeDistance = 70;
 const path = "";
-const maxCards = 200;
+const firstCard = 0;
+const lastCard = 20;
+
+function buildMasterDeck() {
+  masterDeck = [];
+
+  for (let i = firstCard; i <= lastCard; i++) {
+    masterDeck.push(i);
+  }
+}
 
 function getFile(num, side) {
   return path + "AN_" + num.toString().padStart(3, "0") + side + ".png";
 }
 
-function imageExists(src) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = src;
-  });
+function preloadImage(src) {
+  const img = new Image();
+  img.src = src;
 }
 
-async function buildMasterDeck() {
-  masterDeck = [];
-
-  for (let i = 0; i <= maxCards; i++) {
-    const frontExists = await imageExists(getFile(i, "F"));
-    const backExists = await imageExists(getFile(i, "B"));
-
-    if (frontExists && backExists) {
-      masterDeck.push(i);
-    }
+function preloadCurrentAndNext() {
+  if (currentCard !== null) {
+    preloadImage(getFile(currentCard, "B"));
   }
+
+  const nextCard = currentDeck[currentIndex + 1];
+
+  if (nextCard !== undefined) {
+    preloadImage(getFile(nextCard, "F"));
+    preloadImage(getFile(nextCard, "B"));
+  }
+
+  preloadImage(path + "complete_perfect.png");
+  preloadImage(path + "complete_missed.png");
 }
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    const temp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = temp;
   }
 }
 
 function startDeck(cards) {
   currentDeck = [...cards];
   shuffle(currentDeck);
+
   currentIndex = 0;
   currentCard = null;
   showingFront = true;
@@ -214,6 +228,8 @@ function loadCard() {
 
   currentCard = currentDeck[currentIndex];
   document.getElementById("cardImage").src = getFile(currentCard, "F");
+
+  preloadCurrentAndNext();
 }
 
 function flipCard() {
@@ -243,8 +259,6 @@ function mark(isCorrect) {
     }
 
   } else {
-    wrong++;
-
     if (!replayMode) {
       streak = 0;
       mainRunHadMiss = true;
@@ -252,6 +266,7 @@ function mark(isCorrect) {
 
     if (!missedCards.has(currentCard)) {
       missedCards.add(currentCard);
+      wrong++;
     }
   }
 
@@ -340,7 +355,7 @@ function replayMissed() {
   startDeck(cards);
 }
 
-async function restartSession() {
+function restartSession() {
   correct = 0;
   wrong = 0;
   total = 0;
@@ -355,13 +370,7 @@ async function restartSession() {
 
   updateUI();
 
-  await buildMasterDeck();
-
-  if (masterDeck.length === 0) {
-    alert("No cards found. Check your file names.");
-    return;
-  }
-
+  buildMasterDeck();
   startDeck(masterDeck);
 }
 
@@ -386,12 +395,13 @@ function launchConfetti() {
 
 const card = document.getElementById("card");
 
-card.addEventListener("touchstart", e => {
+card.addEventListener("touchstart", function(e) {
   touchStartX = e.changedTouches[0].screenX;
 });
 
-card.addEventListener("touchend", e => {
+card.addEventListener("touchend", function(e) {
   touchEndX = e.changedTouches[0].screenX;
+
   const diff = touchEndX - touchStartX;
 
   if (Math.abs(diff) < swipeDistance) return;
@@ -403,8 +413,10 @@ card.addEventListener("touchend", e => {
   }
 });
 
-updateUI();
-restartSession();
+document.addEventListener("DOMContentLoaded", function() {
+  updateUI();
+  restartSession();
+});
 </script>
 
 </body>
