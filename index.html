@@ -34,7 +34,6 @@ h1 {
   margin-bottom: 8px;
 }
 
-/* ✅ FIXED CARD (NO HEIGHT LIMITS) */
 .card {
   margin-top: 8px;
   background: #111;
@@ -52,12 +51,11 @@ h1 {
 
 .card img {
   width: 100%;
-  height: auto; /* 🔥 KEY FIX */
+  height: auto;
   object-fit: contain;
   border-radius: 12px;
 }
 
-/* BUTTONS */
 .controls {
   display: flex;
   gap: 8px;
@@ -91,7 +89,6 @@ button {
   display: none;
 }
 
-/* CONFETTI */
 .confetti {
   position: fixed;
   top: -20px;
@@ -101,12 +98,8 @@ button {
 }
 
 @keyframes fall {
-  0% {
-    transform: translate(0, -20px) rotate(0deg);
-  }
-  100% {
-    transform: translate(var(--x-move), 110vh) rotate(720deg);
-  }
+  0% { transform: translate(0, -20px) rotate(0deg); }
+  100% { transform: translate(var(--x-move), 110vh) rotate(720deg); }
 }
 </style>
 </head>
@@ -119,7 +112,7 @@ button {
 <div class="tagline">Where numbers come to life.</div>
 
 <div class="card" id="card" onclick="flipCard()">
-  <img id="cardImage" src="" alt="Aussie Numberverse flashcard">
+  <img id="cardImage" src="" alt="Flashcard">
 </div>
 
 <div class="controls" id="answerButtons">
@@ -176,7 +169,7 @@ const swipeDistance = 70;
 
 const path = "";
 
-/* FAST BUILD */
+/* BUILD */
 async function buildMasterDeck() {
   masterDeck = [];
 
@@ -254,7 +247,7 @@ function loadCard() {
 }
 
 function flipCard() {
-  if (currentCard === null) return;
+  if (!currentCard && currentCard !== 0) return;
 
   showingFront = !showingFront;
   document.getElementById("cardImage").src =
@@ -267,9 +260,7 @@ function mark(isCorrect) {
   if (isCorrect) {
     correct++;
 
-    if (!replayMode) {
-      streak++;
-    }
+    if (!replayMode) streak++;
 
     if (missedCards.has(currentCard)) {
       missedCards.delete(currentCard);
@@ -303,15 +294,14 @@ function updateUI() {
   document.getElementById("perfectRuns").textContent = perfectRuns;
 }
 
+/* 🔥 FIXED END LOGIC */
 function showComplete() {
   document.getElementById("answerButtons").style.display = "none";
 
-  const perfect = !mainRunHadMiss && missedCards.size === 0;
+  let image = "";
 
-  document.getElementById("cardImage").src =
-    path + (perfect ? "complete_perfect.png" : "complete_missed.png");
-
-  if (perfect && !replayMode) {
+  if (!replayMode && !mainRunHadMiss && missedCards.size === 0) {
+    image = "complete_perfect.png";
     perfectRuns++;
     localStorage.setItem("perfectRuns", perfectRuns);
 
@@ -319,7 +309,15 @@ function showComplete() {
       launchConfetti();
       confettiPlayed = true;
     }
+
+  } else if (replayMode && missedCards.size === 0) {
+    image = "complete_retry.png";
+
+  } else {
+    image = "complete_missed.png";
   }
+
+  document.getElementById("cardImage").src = path + image;
 
   document.getElementById("replayBtn").style.display =
     missedCards.size > 0 ? "block" : "none";
@@ -329,13 +327,7 @@ function showComplete() {
   const acc = document.getElementById("accuracy");
   acc.style.display = "block";
 
-  if (missedCards.size > 0) {
-    acc.innerHTML =
-      "Accuracy: " + accuracy + "%<br>" +
-      "You missed " + missedCards.size + " card" + (missedCards.size > 1 ? "s" : "");
-  } else {
-    acc.textContent = "Accuracy: " + accuracy + "%";
-  }
+  acc.textContent = "Accuracy: " + accuracy + "%";
 
   updateUI();
 }
@@ -384,7 +376,6 @@ function launchConfetti() {
     el.style.animationDuration = (2 + Math.random() * 2) + "s";
 
     document.body.appendChild(el);
-
     setTimeout(() => el.remove(), 4000);
   }
 }
