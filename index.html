@@ -44,7 +44,7 @@ h1 {
   align-items: center;
   justify-content: center;
   padding: 10px;
-  transition: transform 0.2s ease;
+  transition: transform 0.15s ease;
 }
 
 .card img {
@@ -52,11 +52,6 @@ h1 {
   height: auto;
   object-fit: contain;
   border-radius: 12px;
-  transition: transform 0.3s ease;
-}
-
-.card.flip img {
-  transform: rotateY(180deg);
 }
 
 .controls {
@@ -171,10 +166,6 @@ const swipeDistance = 70;
 
 const path = "";
 
-// sounds (optional)
-const correctSound = new Audio("correct.mp3");
-const wrongSound = new Audio("wrong.mp3");
-
 function buildMasterDeck() {
   masterDeck = Array.from({ length: 101 }, (_, i) => i);
 }
@@ -216,7 +207,6 @@ function startDeck(cards) {
 
 function loadCard() {
   showingFront = true;
-  document.getElementById("card").classList.remove("flip");
 
   if (currentIndex >= currentDeck.length) {
     showComplete();
@@ -230,15 +220,9 @@ function loadCard() {
 function flipCard() {
   if (currentCard === null) return;
 
-  const card = document.getElementById("card");
-  card.classList.toggle("flip");
-
   showingFront = !showingFront;
-
-  setTimeout(() => {
-    document.getElementById("cardImage").src =
-      getFile(currentCard, showingFront ? "F" : "B");
-  }, 150);
+  document.getElementById("cardImage").src =
+    getFile(currentCard, showingFront ? "F" : "B");
 }
 
 function mark(isCorrect) {
@@ -246,8 +230,6 @@ function mark(isCorrect) {
 
   if (isCorrect) {
     correct++;
-    correctSound.play().catch(()=>{});
-
     if (!replayMode) streak++;
 
     if (missedCards.has(currentCard)) {
@@ -256,8 +238,6 @@ function mark(isCorrect) {
     }
 
   } else {
-    wrongSound.play().catch(()=>{});
-
     if (!replayMode) {
       streak = 0;
       mainRunHadMiss = true;
@@ -293,11 +273,7 @@ function showComplete() {
     image = "complete_perfect.png";
     perfectRuns++;
     localStorage.setItem("perfectRuns", perfectRuns);
-
-    if (!confettiPlayed) {
-      launchConfetti();
-      confettiPlayed = true;
-    }
+    launchConfetti();
 
   } else if (replayMode && missedCards.size === 0) {
     image = "complete_retry.png";
@@ -309,12 +285,6 @@ function showComplete() {
 
   document.getElementById("replayBtn").style.display =
     missedCards.size > 0 ? "block" : "none";
-
-  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-
-  const acc = document.getElementById("accuracy");
-  acc.style.display = "block";
-  acc.textContent = "Accuracy: " + accuracy + "%";
 
   updateUI();
 }
@@ -333,7 +303,6 @@ function restartSession() {
   missedCards.clear();
   replayMode = false;
   mainRunHadMiss = false;
-  confettiPlayed = false;
 
   updateUI();
 
@@ -346,28 +315,19 @@ function restartSession() {
 }
 
 function launchConfetti() {
-  const colors = ["#e94f35","#fbba00","#ffee00","#65b33a","#00aae5","#3b4395","#6c4796"];
-
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 60; i++) {
     const el = document.createElement("div");
     el.className = "confetti";
-
     el.style.left = Math.random() * 100 + "vw";
-    el.style.setProperty("--x-move", (Math.random()*300-150)+"px");
-
-    const size = 6 + Math.random() * 6;
-    el.style.width = size + "px";
-    el.style.height = size * 1.5 + "px";
-
-    el.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
-    el.style.animationDuration = (2 + Math.random()*2) + "s";
-
+    el.style.setProperty("--x-move", (Math.random()*200-100)+"px");
+    el.style.width = "6px";
+    el.style.height = "10px";
+    el.style.backgroundColor = ["red","yellow","blue"][Math.floor(Math.random()*3)];
     document.body.appendChild(el);
-    setTimeout(()=>el.remove(),4000);
+    setTimeout(()=>el.remove(),3000);
   }
 }
 
-// ✅ Swipe handling (fixed)
 document.addEventListener("DOMContentLoaded", () => {
   restartSession();
 
@@ -384,7 +344,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (Math.abs(diff) < swipeDistance) return;
 
-    // visual swipe feedback
     card.style.transform = diff > 0 ? "translateX(60px)" : "translateX(-60px)";
     setTimeout(() => card.style.transform = "", 150);
 
