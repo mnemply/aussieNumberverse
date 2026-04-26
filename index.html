@@ -44,7 +44,7 @@ h1 {
   align-items: center;
   justify-content: center;
   padding: 10px;
-  transition: transform 0.15s ease;
+  transition: transform 0.25s ease;
 }
 
 .card img {
@@ -109,7 +109,7 @@ button {
 <h1>Aussie Numberverse</h1>
 <div class="tagline">Where numbers come to life.</div>
 
-<div class="card" id="card" onclick="flipCard()">
+<div class="card" id="card">
   <img id="cardImage" src="" alt="Flashcard">
 </div>
 
@@ -145,7 +145,6 @@ let masterDeck = [];
 let currentDeck = [];
 let currentIndex = 0;
 let currentCard = null;
-let showingFront = true;
 
 let correct = 0;
 let wrong = 0;
@@ -158,13 +157,12 @@ let missedCards = new Set();
 
 let replayMode = false;
 let mainRunHadMiss = false;
-let confettiPlayed = false;
 
-let touchStartX = 0;
-let touchEndX = 0;
-const swipeDistance = 70;
+let startX = 0;
+let currentX = 0;
+let isDragging = false;
 
-const path = "";
+const swipeThreshold = 100;
 
 function buildMasterDeck() {
   masterDeck = Array.from({ length: 101 }, (_, i) => i);
@@ -180,7 +178,7 @@ function preloadImages() {
 }
 
 function getFile(num, side) {
-  return path + "AN_" + num.toString().padStart(3, "0") + side + ".png";
+  return "AN_" + num.toString().padStart(3, "0") + side + ".png";
 }
 
 function shuffle(arr) {
@@ -193,20 +191,14 @@ function shuffle(arr) {
 function startDeck(cards) {
   currentDeck = [...cards];
   shuffle(currentDeck);
-
   currentIndex = 0;
-  currentCard = null;
-  showingFront = true;
-
-  document.getElementById("answerButtons").style.display = "flex";
-  document.getElementById("replayBtn").style.display = "none";
-  document.getElementById("accuracy").style.display = "none";
-
   loadCard();
 }
 
 function loadCard() {
-  showingFront = true;
+  const card = document.getElementById("card");
+  card.style.transition = "none";
+  card.style.transform = "translateX(0px)";
 
   if (currentIndex >= currentDeck.length) {
     showComplete();
@@ -217,35 +209,14 @@ function loadCard() {
   document.getElementById("cardImage").src = getFile(currentCard, "F");
 }
 
-function flipCard() {
-  if (currentCard === null) return;
-
-  showingFront = !showingFront;
-  document.getElementById("cardImage").src =
-    getFile(currentCard, showingFront ? "F" : "B");
-}
-
 function mark(isCorrect) {
-  if (currentCard === null) return;
-
   if (isCorrect) {
     correct++;
     if (!replayMode) streak++;
-
-    if (missedCards.has(currentCard)) {
-      missedCards.delete(currentCard);
-      wrong--;
-    }
-
   } else {
     if (!replayMode) {
       streak = 0;
       mainRunHadMiss = true;
-    }
-
-    if (!missedCards.has(currentCard)) {
-      missedCards.add(currentCard);
-      wrong++;
     }
   }
 
@@ -253,7 +224,7 @@ function mark(isCorrect) {
   updateUI();
 
   currentIndex++;
-  loadCard();
+  setTimeout(loadCard, 200);
 }
 
 function updateUI() {
@@ -265,33 +236,7 @@ function updateUI() {
 }
 
 function showComplete() {
-  document.getElementById("answerButtons").style.display = "none";
-
-  let image = "";
-
-  if (!replayMode && !mainRunHadMiss && missedCards.size === 0) {
-    image = "complete_perfect.png";
-    perfectRuns++;
-    localStorage.setItem("perfectRuns", perfectRuns);
-    launchConfetti();
-
-  } else if (replayMode && missedCards.size === 0) {
-    image = "complete_retry.png";
-  } else {
-    image = "complete_missed.png";
-  }
-
-  document.getElementById("cardImage").src = path + image;
-
-  document.getElementById("replayBtn").style.display =
-    missedCards.size > 0 ? "block" : "none";
-
-  updateUI();
-}
-
-function replayMissed() {
-  replayMode = true;
-  startDeck(Array.from(missedCards));
+  document.getElementById("cardImage").src = "complete_perfect.png";
 }
 
 function restartSession() {
@@ -299,12 +244,6 @@ function restartSession() {
   wrong = 0;
   total = 0;
   streak = 0;
-
-  missedCards.clear();
-  replayMode = false;
-  mainRunHadMiss = false;
-
-  updateUI();
 
   if (masterDeck.length === 0) {
     buildMasterDeck();
@@ -314,40 +253,45 @@ function restartSession() {
   startDeck(masterDeck);
 }
 
-function launchConfetti() {
-  for (let i = 0; i < 60; i++) {
-    const el = document.createElement("div");
-    el.className = "confetti";
-    el.style.left = Math.random() * 100 + "vw";
-    el.style.setProperty("--x-move", (Math.random()*200-100)+"px");
-    el.style.width = "6px";
-    el.style.height = "10px";
-    el.style.backgroundColor = ["red","yellow","blue"][Math.floor(Math.random()*3)];
-    document.body.appendChild(el);
-    setTimeout(()=>el.remove(),3000);
-  }
-}
-
+// 🎮 SWIPE ANIMATION
 document.addEventListener("DOMContentLoaded", () => {
   restartSession();
 
   const card = document.getElementById("card");
 
   card.addEventListener("touchstart", e => {
-    touchStartX = e.changedTouches[0].screenX;
+    startX = e.touches[0].clientX;
+    isDragging = true;
   });
 
-  card.addEventListener("touchend", e => {
-    touchEndX = e.changedTouches[0].screenX;
+  card.addEventListener("touchmove", e => {
+    if (!isDragging) return;
 
-    const diff = touchEndX - touchStartX;
+    currentX = e.touches[0].clientX;
+    const diff = currentX - startX;
 
-    if (Math.abs(diff) < swipeDistance) return;
+    card.style.transform = `translateX(${diff}px) rotate(${diff * 0.05}deg)`;
+  });
 
-    card.style.transform = diff > 0 ? "translateX(60px)" : "translateX(-60px)";
-    setTimeout(() => card.style.transform = "", 150);
+  card.addEventListener("touchend", () => {
+    isDragging = false;
 
-    diff > 0 ? mark(true) : mark(false);
+    const diff = currentX - startX;
+
+    if (Math.abs(diff) > swipeThreshold) {
+      const direction = diff > 0 ? 1 : -1;
+
+      card.style.transition = "transform 0.3s ease";
+      card.style.transform = `translateX(${direction * 500}px) rotate(${direction * 20}deg)`;
+
+      setTimeout(() => {
+        mark(diff > 0);
+      }, 200);
+
+    } else {
+      card.style.transition = "transform 0.3s ease";
+      card.style.transform = "translateX(0px)";
+    }
   });
 });
 </script>
