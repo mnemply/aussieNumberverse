@@ -40,12 +40,9 @@ h1 {
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
-  touch-action: pan-y;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 10px;
 }
 
@@ -160,52 +157,13 @@ let missedCards = new Set();
 
 let replayMode = false;
 let mainRunHadMiss = false;
-
 let confettiPlayed = false;
-
-let touchStartX = 0;
-let touchEndX = 0;
-const swipeDistance = 70;
 
 const path = "";
 
-/* BUILD */
-async function buildMasterDeck() {
-  masterDeck = [];
-
-  const checks = [];
-
-  for (let i = 0; i < 200; i++) {
-    const front = getFile(i, "F");
-    const back = getFile(i, "B");
-
-    checks.push(
-      imagePairExists(front, back).then(exists => {
-        if (exists) masterDeck.push(i);
-      })
-    );
-  }
-
-  await Promise.all(checks);
-}
-
-function imagePairExists(front, back) {
-  return new Promise(resolve => {
-    let loaded = 0;
-
-    const f = new Image();
-    const b = new Image();
-
-    f.onload = b.onload = () => {
-      loaded++;
-      if (loaded === 2) resolve(true);
-    };
-
-    f.onerror = b.onerror = () => resolve(false);
-
-    f.src = front;
-    b.src = back;
-  });
+/* BUILD (FIXED SIZE) */
+function buildMasterDeck() {
+  masterDeck = Array.from({ length: 101 }, (_, i) => i);
 }
 
 function getFile(num, side) {
@@ -247,7 +205,7 @@ function loadCard() {
 }
 
 function flipCard() {
-  if (!currentCard && currentCard !== 0) return;
+  if (currentCard === null) return;
 
   showingFront = !showingFront;
   document.getElementById("cardImage").src =
@@ -294,7 +252,6 @@ function updateUI() {
   document.getElementById("perfectRuns").textContent = perfectRuns;
 }
 
-/* 🔥 FIXED END LOGIC */
 function showComplete() {
   document.getElementById("answerButtons").style.display = "none";
 
@@ -326,7 +283,6 @@ function showComplete() {
 
   const acc = document.getElementById("accuracy");
   acc.style.display = "block";
-
   acc.textContent = "Accuracy: " + accuracy + "%";
 
   updateUI();
@@ -337,7 +293,7 @@ function replayMissed() {
   startDeck(Array.from(missedCards));
 }
 
-async function restartSession() {
+function restartSession() {
   correct = 0;
   wrong = 0;
   total = 0;
@@ -351,49 +307,33 @@ async function restartSession() {
   updateUI();
 
   if (masterDeck.length === 0) {
-    await buildMasterDeck();
+    buildMasterDeck();
   }
 
   startDeck(masterDeck);
 }
 
 function launchConfetti() {
-  const colors = ["#e94f35", "#fbba00", "#ffee00", "#65b33a", "#00aae5", "#3b4395", "#6c4796"];
+  const colors = ["#e94f35","#fbba00","#ffee00","#65b33a","#00aae5","#3b4395","#6c4796"];
 
   for (let i = 0; i < 80; i++) {
     const el = document.createElement("div");
     el.className = "confetti";
 
     el.style.left = Math.random() * 100 + "vw";
-    el.style.top = Math.random() * -50 + "px";
-    el.style.setProperty("--x-move", (Math.random() * 300 - 150) + "px");
+    el.style.setProperty("--x-move", (Math.random()*300-150)+"px");
 
     const size = 6 + Math.random() * 6;
     el.style.width = size + "px";
     el.style.height = size * 1.5 + "px";
 
-    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    el.style.animationDuration = (2 + Math.random() * 2) + "s";
+    el.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+    el.style.animationDuration = (2 + Math.random()*2) + "s";
 
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 4000);
+    setTimeout(()=>el.remove(),4000);
   }
 }
-
-const card = document.getElementById("card");
-
-card.addEventListener("touchstart", e => {
-  touchStartX = e.changedTouches[0].screenX;
-});
-
-card.addEventListener("touchend", e => {
-  touchEndX = e.changedTouches[0].screenX;
-  const diff = touchEndX - touchStartX;
-
-  if (Math.abs(diff) < swipeDistance) return;
-
-  diff > 0 ? mark(true) : mark(false);
-});
 
 document.addEventListener("DOMContentLoaded", restartSession);
 </script>
