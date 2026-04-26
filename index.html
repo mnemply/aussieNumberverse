@@ -44,6 +44,7 @@ h1 {
   align-items: center;
   justify-content: center;
   padding: 10px;
+  transition: transform 0.2s ease;
 }
 
 .card img {
@@ -51,6 +52,11 @@ h1 {
   height: auto;
   object-fit: contain;
   border-radius: 12px;
+  transition: transform 0.3s ease;
+}
+
+.card.flip img {
+  transform: rotateY(180deg);
 }
 
 .controls {
@@ -159,11 +165,27 @@ let replayMode = false;
 let mainRunHadMiss = false;
 let confettiPlayed = false;
 
+let touchStartX = 0;
+let touchEndX = 0;
+const swipeDistance = 70;
+
 const path = "";
 
-/* BUILD (FIXED SIZE) */
+// sounds (optional)
+const correctSound = new Audio("correct.mp3");
+const wrongSound = new Audio("wrong.mp3");
+
 function buildMasterDeck() {
   masterDeck = Array.from({ length: 101 }, (_, i) => i);
+}
+
+function preloadImages() {
+  masterDeck.forEach(i => {
+    ["F","B"].forEach(side => {
+      const img = new Image();
+      img.src = getFile(i, side);
+    });
+  });
 }
 
 function getFile(num, side) {
@@ -194,6 +216,7 @@ function startDeck(cards) {
 
 function loadCard() {
   showingFront = true;
+  document.getElementById("card").classList.remove("flip");
 
   if (currentIndex >= currentDeck.length) {
     showComplete();
@@ -207,9 +230,15 @@ function loadCard() {
 function flipCard() {
   if (currentCard === null) return;
 
+  const card = document.getElementById("card");
+  card.classList.toggle("flip");
+
   showingFront = !showingFront;
-  document.getElementById("cardImage").src =
-    getFile(currentCard, showingFront ? "F" : "B");
+
+  setTimeout(() => {
+    document.getElementById("cardImage").src =
+      getFile(currentCard, showingFront ? "F" : "B");
+  }, 150);
 }
 
 function mark(isCorrect) {
@@ -217,6 +246,7 @@ function mark(isCorrect) {
 
   if (isCorrect) {
     correct++;
+    correctSound.play().catch(()=>{});
 
     if (!replayMode) streak++;
 
@@ -226,6 +256,8 @@ function mark(isCorrect) {
     }
 
   } else {
+    wrongSound.play().catch(()=>{});
+
     if (!replayMode) {
       streak = 0;
       mainRunHadMiss = true;
@@ -269,7 +301,6 @@ function showComplete() {
 
   } else if (replayMode && missedCards.size === 0) {
     image = "complete_retry.png";
-
   } else {
     image = "complete_missed.png";
   }
@@ -308,6 +339,7 @@ function restartSession() {
 
   if (masterDeck.length === 0) {
     buildMasterDeck();
+    preloadImages();
   }
 
   startDeck(masterDeck);
@@ -335,7 +367,30 @@ function launchConfetti() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", restartSession);
+// ✅ Swipe handling (fixed)
+document.addEventListener("DOMContentLoaded", () => {
+  restartSession();
+
+  const card = document.getElementById("card");
+
+  card.addEventListener("touchstart", e => {
+    touchStartX = e.changedTouches[0].screenX;
+  });
+
+  card.addEventListener("touchend", e => {
+    touchEndX = e.changedTouches[0].screenX;
+
+    const diff = touchEndX - touchStartX;
+
+    if (Math.abs(diff) < swipeDistance) return;
+
+    // visual swipe feedback
+    card.style.transform = diff > 0 ? "translateX(60px)" : "translateX(-60px)";
+    setTimeout(() => card.style.transform = "", 150);
+
+    diff > 0 ? mark(true) : mark(false);
+  });
+});
 </script>
 
 </body>
