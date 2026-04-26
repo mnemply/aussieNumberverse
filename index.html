@@ -21,35 +21,18 @@ body {
   padding: 10px;
 }
 
-h1 {
-  text-align: center;
-  font-size: 1.7rem;
-  margin: 8px 0 4px;
-}
-
-.tagline {
-  text-align: center;
-  font-size: 0.85rem;
-  opacity: 0.85;
-  margin-bottom: 8px;
-}
-
 .card {
   margin-top: 8px;
   background: #111;
   border-radius: 16px;
   overflow: hidden;
-  cursor: pointer;
   display: flex;
-  align-items: center;
   justify-content: center;
   padding: 10px;
 }
 
 .card img {
   width: 100%;
-  height: auto;
-  object-fit: contain;
   border-radius: 12px;
 }
 
@@ -67,16 +50,14 @@ button {
   font-weight: bold;
 }
 
-.good { background: #16a34a; color: white; }
-.bad { background: #dc2626; color: white; }
-.restart { background: #facc15; color: #111; }
-.replay { background: #fb923c; color: #111; }
+.good { background: #16a34a; }
+.bad { background: #dc2626; }
+.restart { background: #facc15; }
 
 .score, .streaks {
   display: flex;
   justify-content: space-between;
   margin-top: 8px;
-  font-size: 0.9rem;
 }
 
 .accuracy {
@@ -92,14 +73,11 @@ button {
 
 <div class="app">
 
-<h1>Aussie Numberverse</h1>
-<div class="tagline">Where numbers come to life.</div>
-
 <div class="card" id="card">
-  <img id="cardImage" src="" alt="Flashcard">
+  <img id="cardImage">
 </div>
 
-<div class="controls" id="answerButtons">
+<div class="controls">
   <button class="good" onclick="mark(true)">I knew it</button>
   <button class="bad" onclick="mark(false)">Missed it</button>
 </div>
@@ -115,9 +93,11 @@ button {
 </div>
 
 <div class="streaks">
-  <div>🔥 Streak: <span id="streak">0</span></div>
-  <div>🏆 Perfect Runs: <span id="perfectRuns">0</span></div>
+  <div>🔥 <span id="streak">0</span></div>
+  <div>🏆 <span id="perfectRuns">0</span></div>
 </div>
+
+<div class="accuracy" id="accuracy"></div>
 
 </div>
 
@@ -131,80 +111,66 @@ let showingFront = true;
 let correct = 0;
 let wrong = 0;
 let total = 0;
-
 let streak = 0;
-let perfectRuns = Number(localStorage.getItem("perfectRuns")) || 0;
 
-let missedCards = new Set();
+let perfectRuns = Number(localStorage.getItem("perfectRuns")) || 0;
 
 let touchStartX = 0;
 let touchEndX = 0;
 const swipeDistance = 70;
-
 let moved = false;
 
 function buildMasterDeck() {
   masterDeck = Array.from({ length: 101 }, (_, i) => i);
 }
 
-function preloadImages() {
-  masterDeck.forEach(i => {
-    ["F","B"].forEach(side => {
-      const img = new Image();
-      img.src = getFile(i, side);
-    });
-  });
+function getFile(n, s) {
+  return "AN_" + n.toString().padStart(3,"0") + s + ".png";
 }
 
-function getFile(num, side) {
-  return "AN_" + num.toString().padStart(3, "0") + side + ".png";
-}
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
   }
 }
 
-function startDeck(cards) {
-  currentDeck = [...cards];
+function startDeck(cards){
+  currentDeck=[...cards];
   shuffle(currentDeck);
-  currentIndex = 0;
+  currentIndex=0;
   loadCard();
 }
 
-function loadCard() {
+function loadCard(){
   showingFront = true;
 
-  if (currentIndex >= currentDeck.length) return;
+  if(currentIndex>=currentDeck.length){
+    showComplete();
+    return;
+  }
 
-  currentCard = currentDeck[currentIndex];
-  document.getElementById("cardImage").src = getFile(currentCard, "F");
+  currentCard=currentDeck[currentIndex];
+  document.getElementById("cardImage").src=getFile(currentCard,"F");
 }
 
-function flipCard() {
-  if (moved) return;
+function flipCard(){
+  if(moved || currentCard===null) return;
 
   showingFront = !showingFront;
   document.getElementById("cardImage").src =
     getFile(currentCard, showingFront ? "F" : "B");
 }
 
-function mark(isCorrect) {
-  if (isCorrect) {
+function mark(isCorrect){
+  if(currentCard===null) return;
+
+  if(isCorrect){
     correct++;
     streak++;
-
-    if (missedCards.has(currentCard)) {
-      missedCards.delete(currentCard);
-      wrong--;
-    }
-
   } else {
-    wrong++; // 🔥 FIXED
+    wrong++;
     streak = 0;
-    missedCards.add(currentCard); // 🔥 FIXED
   }
 
   total++;
@@ -214,48 +180,67 @@ function mark(isCorrect) {
   loadCard();
 }
 
-function updateUI() {
-  document.getElementById("correct").textContent = correct;
-  document.getElementById("wrong").textContent = wrong;
-  document.getElementById("total").textContent = total;
-  document.getElementById("streak").textContent = streak;
-  document.getElementById("perfectRuns").textContent = perfectRuns;
+function updateUI(){
+  document.getElementById("correct").textContent=correct;
+  document.getElementById("wrong").textContent=wrong;
+  document.getElementById("total").textContent=total;
+  document.getElementById("streak").textContent=streak;
+  document.getElementById("perfectRuns").textContent=perfectRuns;
 }
 
-function restartSession() {
-  correct = 0;
-  wrong = 0;
-  total = 0;
-  streak = 0;
-  missedCards.clear();
+function showComplete(){
+  currentCard = null;
 
-  if (masterDeck.length === 0) {
-    buildMasterDeck();
-    preloadImages();
+  let image = "";
+  
+  if(wrong === 0){
+    image = "complete_perfect.png";
+    perfectRuns++;
+    localStorage.setItem("perfectRuns", perfectRuns);
+  } else {
+    image = "complete_missed.png";
   }
 
+  document.getElementById("cardImage").src = image;
+
+  // ✅ Accuracy back
+  const accuracy = Math.round((correct / total) * 100);
+  const acc = document.getElementById("accuracy");
+  acc.style.display = "block";
+  acc.textContent = "Accuracy: " + accuracy + "%";
+}
+
+function restartSession(){
+  correct=0;
+  wrong=0;
+  total=0;
+  streak=0;
+
+  document.getElementById("accuracy").style.display = "none";
+
+  if(masterDeck.length===0) buildMasterDeck();
   startDeck(masterDeck);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded",()=>{
   restartSession();
 
-  const card = document.getElementById("card");
+  const card=document.getElementById("card");
 
-  card.addEventListener("click", flipCard);
+  card.addEventListener("click",flipCard);
 
-  card.addEventListener("touchstart", e => {
-    moved = false;
-    touchStartX = e.changedTouches[0].screenX;
+  card.addEventListener("touchstart",e=>{
+    moved=false;
+    touchStartX=e.changedTouches[0].screenX;
   });
 
-  card.addEventListener("touchend", e => {
-    touchEndX = e.changedTouches[0].screenX;
-    const diff = touchEndX - touchStartX;
+  card.addEventListener("touchend",e=>{
+    touchEndX=e.changedTouches[0].screenX;
+    const diff=touchEndX-touchStartX;
 
-    if (Math.abs(diff) > swipeDistance) {
-      moved = true;
-      diff > 0 ? mark(true) : mark(false); // ✅ now works properly
+    if(Math.abs(diff)>swipeDistance){
+      moved=true;
+      diff>0?mark(true):mark(false);
     }
   });
 });
