@@ -203,7 +203,6 @@ function showComplete(){
 
   document.getElementById("cardImage").src = image;
 
-  // ✅ Accuracy back
   const accuracy = Math.round((correct / total) * 100);
   const acc = document.getElementById("accuracy");
   acc.style.display = "block";
@@ -215,6 +214,8 @@ function restartSession(){
   wrong=0;
   total=0;
   streak=0;
+
+  updateUI(); // 🔥 FIX HERE
 
   document.getElementById("accuracy").style.display = "none";
 
