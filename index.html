@@ -85,19 +85,6 @@ button {
   font-weight: bold;
   display: none;
 }
-
-.confetti {
-  position: fixed;
-  top: -20px;
-  opacity: 0.9;
-  z-index: 9999;
-  animation: fall linear forwards;
-}
-
-@keyframes fall {
-  0% { transform: translate(0, -20px) rotate(0deg); }
-  100% { transform: translate(var(--x-move), 110vh) rotate(720deg); }
-}
 </style>
 </head>
 
@@ -118,9 +105,6 @@ button {
 </div>
 
 <div class="controls">
-  <button class="replay" id="replayBtn" onclick="replayMissed()" style="display:none;">
-    Replay Missed Cards
-  </button>
   <button class="restart" onclick="restartSession()">Restart</button>
 </div>
 
@@ -134,8 +118,6 @@ button {
   <div>🔥 Streak: <span id="streak">0</span></div>
   <div>🏆 Perfect Runs: <span id="perfectRuns">0</span></div>
 </div>
-
-<div class="accuracy" id="accuracy"></div>
 
 </div>
 
@@ -155,14 +137,11 @@ let perfectRuns = Number(localStorage.getItem("perfectRuns")) || 0;
 
 let missedCards = new Set();
 
-let replayMode = false;
-let mainRunHadMiss = false;
-
 let touchStartX = 0;
 let touchEndX = 0;
 const swipeDistance = 70;
 
-let moved = false; // 🔥 key fix
+let moved = false;
 
 function buildMasterDeck() {
   masterDeck = Array.from({ length: 101 }, (_, i) => i);
@@ -205,7 +184,7 @@ function loadCard() {
 }
 
 function flipCard() {
-  if (moved) return; // 🔥 prevents swipe triggering tap
+  if (moved) return;
 
   showingFront = !showingFront;
   document.getElementById("cardImage").src =
@@ -215,12 +194,17 @@ function flipCard() {
 function mark(isCorrect) {
   if (isCorrect) {
     correct++;
-    if (!replayMode) streak++;
-  } else {
-    if (!replayMode) {
-      streak = 0;
-      mainRunHadMiss = true;
+    streak++;
+
+    if (missedCards.has(currentCard)) {
+      missedCards.delete(currentCard);
+      wrong--;
     }
+
+  } else {
+    wrong++; // 🔥 FIXED
+    streak = 0;
+    missedCards.add(currentCard); // 🔥 FIXED
   }
 
   total++;
@@ -243,6 +227,7 @@ function restartSession() {
   wrong = 0;
   total = 0;
   streak = 0;
+  missedCards.clear();
 
   if (masterDeck.length === 0) {
     buildMasterDeck();
@@ -270,7 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (Math.abs(diff) > swipeDistance) {
       moved = true;
-      diff > 0 ? mark(true) : mark(false);
+      diff > 0 ? mark(true) : mark(false); // ✅ now works properly
     }
   });
 });
