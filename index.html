@@ -44,7 +44,6 @@ h1 {
   align-items: center;
   justify-content: center;
   padding: 10px;
-  transition: transform 0.25s ease;
 }
 
 .card img {
@@ -145,6 +144,7 @@ let masterDeck = [];
 let currentDeck = [];
 let currentIndex = 0;
 let currentCard = null;
+let showingFront = true;
 
 let correct = 0;
 let wrong = 0;
@@ -158,11 +158,11 @@ let missedCards = new Set();
 let replayMode = false;
 let mainRunHadMiss = false;
 
-let startX = 0;
-let currentX = 0;
-let isDragging = false;
+let touchStartX = 0;
+let touchEndX = 0;
+const swipeDistance = 70;
 
-const swipeThreshold = 100;
+let moved = false; // 🔥 key fix
 
 function buildMasterDeck() {
   masterDeck = Array.from({ length: 101 }, (_, i) => i);
@@ -196,17 +196,20 @@ function startDeck(cards) {
 }
 
 function loadCard() {
-  const card = document.getElementById("card");
-  card.style.transition = "none";
-  card.style.transform = "translateX(0px)";
+  showingFront = true;
 
-  if (currentIndex >= currentDeck.length) {
-    showComplete();
-    return;
-  }
+  if (currentIndex >= currentDeck.length) return;
 
   currentCard = currentDeck[currentIndex];
   document.getElementById("cardImage").src = getFile(currentCard, "F");
+}
+
+function flipCard() {
+  if (moved) return; // 🔥 prevents swipe triggering tap
+
+  showingFront = !showingFront;
+  document.getElementById("cardImage").src =
+    getFile(currentCard, showingFront ? "F" : "B");
 }
 
 function mark(isCorrect) {
@@ -224,7 +227,7 @@ function mark(isCorrect) {
   updateUI();
 
   currentIndex++;
-  setTimeout(loadCard, 200);
+  loadCard();
 }
 
 function updateUI() {
@@ -233,10 +236,6 @@ function updateUI() {
   document.getElementById("total").textContent = total;
   document.getElementById("streak").textContent = streak;
   document.getElementById("perfectRuns").textContent = perfectRuns;
-}
-
-function showComplete() {
-  document.getElementById("cardImage").src = "complete_perfect.png";
 }
 
 function restartSession() {
@@ -253,44 +252,25 @@ function restartSession() {
   startDeck(masterDeck);
 }
 
-// 🎮 SWIPE ANIMATION
 document.addEventListener("DOMContentLoaded", () => {
   restartSession();
 
   const card = document.getElementById("card");
 
+  card.addEventListener("click", flipCard);
+
   card.addEventListener("touchstart", e => {
-    startX = e.touches[0].clientX;
-    isDragging = true;
+    moved = false;
+    touchStartX = e.changedTouches[0].screenX;
   });
 
-  card.addEventListener("touchmove", e => {
-    if (!isDragging) return;
+  card.addEventListener("touchend", e => {
+    touchEndX = e.changedTouches[0].screenX;
+    const diff = touchEndX - touchStartX;
 
-    currentX = e.touches[0].clientX;
-    const diff = currentX - startX;
-
-    card.style.transform = `translateX(${diff}px) rotate(${diff * 0.05}deg)`;
-  });
-
-  card.addEventListener("touchend", () => {
-    isDragging = false;
-
-    const diff = currentX - startX;
-
-    if (Math.abs(diff) > swipeThreshold) {
-      const direction = diff > 0 ? 1 : -1;
-
-      card.style.transition = "transform 0.3s ease";
-      card.style.transform = `translateX(${direction * 500}px) rotate(${direction * 20}deg)`;
-
-      setTimeout(() => {
-        mark(diff > 0);
-      }, 200);
-
-    } else {
-      card.style.transition = "transform 0.3s ease";
-      card.style.transform = "translateX(0px)";
+    if (Math.abs(diff) > swipeDistance) {
+      moved = true;
+      diff > 0 ? mark(true) : mark(false);
     }
   });
 });
